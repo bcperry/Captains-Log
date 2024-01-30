@@ -1,2 +1,14 @@
+# Pytorch utils for GPU acceleration
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch
+torchvision
+torchaudio
+
+# the openai whisper library
 openai-whisper
+
+#pandas for dataframe manipulation
 pandas
+
+# ipypkernel for VScode
+ipykernel
