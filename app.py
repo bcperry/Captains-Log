@@ -75,15 +75,22 @@ if transcription_file:
     transcription = transcribe(str(dest_path))
 
     st.video(str(dest_path))
-    transcription
+
+    st.write(transcription)
+
+    st.download_button(
+        label="Download Transcript",
+        data=transcription.to_csv(index=False).encode('utf-8'),
+        file_name='transcript_' + transcription_file.name.split('.')[0] + '.csv',
+        mime="text/csv")
 
 
 
 
-
+    if st.sidebar.button("Rerun"):
+        st.cache_data.clear()
 
 else:
     st.warning("Please upload a file.")
 
-if st.button("Rerun"):
-    st.cache_data.clear()
+
