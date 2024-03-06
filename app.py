@@ -4,8 +4,12 @@ import whisper
 
 # Python In-built packages
 import pandas as pd
+from io import BytesIO
+import time
 import tempfile
 from pathlib import Path
+from audiorecorder import audiorecorder
+from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 TEMP_DIR = Path(tempfile.gettempdir())
 
@@ -60,31 +64,54 @@ model = create_whisper_model()
 st.title("Speech to Text Transcription")
 
 # Sidebar
-st.sidebar.header("Data Upload")
+with st.sidebar:
+    st.header("Data Upload")
 
-transcription_file = st.sidebar.file_uploader(
-    "Select Audio or Video File", type=["mp4", "avi", "mov", "mkv", "mp3", "wav"])  # TODO: Expand this list
+    audio_files = st.sidebar.file_uploader(
+        "Select Audio or Video File", 
+        accept_multiple_files=True,
+        type=["mp4", "avi", "mov", "mkv", "mp3", "wav"])  # TODO: Expand this list
 
-st.sidebar.header("Made with ❤️ by the Data Science Team")
+    st.header("Record your audio")
+    recording = audiorecorder("Click to record", "Click to stop recording")
+    if st.button("Clear Recording"):
+        recording = None
+    if recording is not None and len(recording)> 0:
+        # its a pain in the ass to deal with this see if we can clean it later
+        file = recording.export(TEMP_DIR / f"{time.strftime('%Y%m%d-%H%M%S')}audio.wav", format="wav")
+        audio_stream = BytesIO()
+        recording.export(audio_stream, format='wav')
+        audio_stream.seek(0)
+        file.file_id = 'recording'
+        file.type = "audio/wav"
+        file.data = audio_stream.getvalue()
+        file = UploadedFile(record = file, file_urls=TEMP_DIR / f"audio.wav")
+        
+        # show the recording
+        st.header("Your recording")
+        recording
+
+        #add to the list
+        audio_files.append(file)
+    st.header("Made with ❤️ by the Data Science Team")
 
 
-if transcription_file:
+if len(audio_files)>0:
+    for file in audio_files:
+        # file
+        dest_path = load_file(file)
 
-    dest_path = load_file(transcription_file)
+        transcription = transcribe(str(dest_path))
 
-    transcription = transcribe(str(dest_path))
+        st.video(str(dest_path))
 
-    st.video(str(dest_path))
+        st.write(transcription)
 
-    st.write(transcription)
-
-    st.download_button(
-        label="Download Transcript",
-        data=transcription.to_csv(index=False).encode('utf-8'),
-        file_name='transcript_' + transcription_file.name.split('.')[0] + '.csv',
-        mime="text/csv")
-
-
+        st.download_button(
+            label="Download Transcript",
+            data=transcription.to_csv(index=False).encode('utf-8'),
+            file_name='transcript_' + file.name.split('.')[0] + '.csv',
+            mime="text/csv")
 
 
     if st.sidebar.button("Rerun"):

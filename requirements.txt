@@ -15,3 +15,4 @@ ipykernel
 
 # streamlit for user interface
 streamlit
+streamlit-audiorecorder
