@@ -6,6 +6,7 @@ torchaudio
 
 # the openai whisper library
 openai-whisper
+openai
 
 #pandas for dataframe manipulation
 pandas
