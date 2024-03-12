@@ -79,10 +79,24 @@ def load_file(file):
 
 @st.cache_data
 def transcribe(dest_path):
-    transcription = model.transcribe(str(dest_path))
-    text = transcription['text']
-    transcript_df = pd.DataFrame(transcription['segments'])
+    if st.session_state.local_model:
+        transcription = model.transcribe(str(dest_path))
+        
+    else:
+        audio_file= open(str(dest_path), "rb")
+        transcription = st.session_state.openAI.audio.transcriptions.create(
+        model="whisper-1", 
+        file=audio_file,
+        response_format="verbose_json",
+        )
+    if isinstance(transcription, dict):
+        text = transcription['text']
+        transcript_df = pd.DataFrame(transcription['segments'])
+    else:
+        text = transcription.text
+        transcript_df = pd.DataFrame(transcription.segments)
     transcript_df = transcript_df[['start', 'end', 'text']]
+
     return transcript_df, text
 
 # Setting page layout
@@ -93,8 +107,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# load the whisper model
-model = create_whisper_model()
+
+
 
 # Create an OpenAI client if not already initialized in the Streamlit session state
 if "openAI" not in st.session_state:
@@ -106,6 +120,11 @@ st.title("Speech to Text Transcription")
 # Sidebar
 with st.sidebar:
     st.header("Data Upload")
+    st.session_state.local_model = st.toggle("Use Local Whisper", value=False)
+
+    if st.session_state.local_model:
+        # load the whisper model
+        model = create_whisper_model()
 
     audio_files = st.sidebar.file_uploader(
         "Select Audio or Video File", 
