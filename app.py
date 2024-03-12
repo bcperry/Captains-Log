@@ -108,8 +108,6 @@ st.set_page_config(
 )
 
 
-
-
 # Create an OpenAI client if not already initialized in the Streamlit session state
 if "openAI" not in st.session_state:
     st.session_state.openAI= create_client()
