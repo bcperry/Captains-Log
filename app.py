@@ -171,12 +171,9 @@ if len(audio_files)>0:
             
             st.video(str(dest_path))
 
-            if st.toggle(f'Show Timestamps [{file.name}]'):
-                st.expand
-                st.write(transcription_df)
+            st.write(transcription_df)
 
-            if st.toggle(f"Full transcript [{file.name}]"):
-                st.markdown(transcripts)
+            st.markdown(transcripts)
 
             st.download_button(
                 label="Download Transcript",
