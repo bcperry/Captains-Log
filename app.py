@@ -101,8 +101,8 @@ def transcribe(dest_path):
 
 # Setting page layout
 st.set_page_config(
-    page_title="Transcription Service",
-    page_icon="👂",
+    page_title="Captain's Log",
+    page_icon="📜",
     layout="centered",
     initial_sidebar_state="expanded"
 )
@@ -114,8 +114,12 @@ st.set_page_config(
 if "openAI" not in st.session_state:
     st.session_state.openAI= create_client()
 
+# Create an OpenAI client if not already initialized in the Streamlit session state
+if "summary" not in st.session_state:
+    st.session_state.summary= None
+
 # Main page heading
-st.title("Speech to Text Transcription")
+st.title("Captain's Log 🖖📜")
 
 # Sidebar
 with st.sidebar:
@@ -166,9 +170,15 @@ if len(audio_files)>0:
         transcription_df, text = transcribe(str(dest_path))
         transcripts = transcripts + f'{file.name}: \n\n {text}\n\n'
         with st.expander(file.name):
+            
             st.video(str(dest_path))
 
-            st.write(transcription_df)
+            if st.toggle(f'Show Timestamps [{file.name}]'):
+                st.expand
+                st.write(transcription_df)
+
+            if st.toggle(f"Full transcript [{file.name}]"):
+                st.markdown(transcripts)
 
             st.download_button(
                 label="Download Transcript",
@@ -176,14 +186,12 @@ if len(audio_files)>0:
                 file_name='transcript_' + file.name.split('.')[0] + '.csv',
                 mime="text/csv")
 
-    st.subheader("Full transcript")
-    st.markdown(transcripts)
-
     if st.button("Generate Summary"):
-        summary = generate_summary(transcripts=transcripts)
+        st.session_state.summary = generate_summary(transcripts=transcripts)
     
+    if st.session_state.summary is not None:
         st.subheader("Executive Summary")
-        st.write(summary)
+        st.write(st.session_state.summary)
 
     if st.sidebar.button("Rerun"):
         st.cache_data.clear()
