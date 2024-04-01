@@ -1,3 +1,5 @@
 *.pt
 .streamlit
 /data
+.venv
+__pycache__/azure_utils.cpython-311.pyc

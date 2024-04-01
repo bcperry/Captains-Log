@@ -1,16 +1,55 @@
 # External packages
 import streamlit as st
 import whisper
-
-# Python In-built packages
-import pandas as pd
-from io import BytesIO
-import time
-import tempfile
-from pathlib import Path
 from audiorecorder import audiorecorder
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 from openai import OpenAI
+import azure_utils as azure
+
+# Python In-built packages
+import os
+from io import BytesIO
+import datetime
+import time
+import tempfile
+from pathlib import Path
+
+
+@st.cache_data
+def save_transcript(transcript : str):
+    """
+    save the transcript for later use.
+
+    Args:
+        transcript (str): The string of the transcript.
+        
+    Returns:
+        None
+    """
+    if st.session_state.local_storage:
+        # Get current date
+        current_date = datetime.datetime.now().strftime('%Y-%m-%d')
+        
+        # Create directory if it doesn't exist
+        directory = f"data/{current_date}"
+        os.makedirs(directory, exist_ok=True)
+        
+        # Count existing files
+        existing_files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        file_count = len(existing_files)
+        
+        # Construct filename
+        filename = f"{current_date}_log_{file_count + 1}.txt"
+        
+        # Write text to file
+        with open(os.path.join(directory, filename), 'w', encoding='utf-8')  as file:
+            file.write(transcript)
+        
+        print(f"Text saved to {filename} in {directory}")
+            
+    else:
+        azure.save_transcript(transcript, st.session_state.azure_client)
+        print(f"Text saved to azure")
 
 @st.cache_resource
 def create_client():
@@ -22,6 +61,11 @@ def create_client():
     """
     client = OpenAI(api_key=st.secrets.OPENAI_API_KEY)
     return client
+
+@st.cache_resource
+def authenticate_storage():
+    st.secrets.AZURE_CONN_STRING
+    return()
 
 TEMP_DIR = Path(tempfile.gettempdir())
 
@@ -91,13 +135,10 @@ def transcribe(dest_path):
         )
     if isinstance(transcription, dict):
         text = transcription['text']
-        transcript_df = pd.DataFrame(transcription['segments'])
     else:
         text = transcription.text
-        transcript_df = pd.DataFrame(transcription.segments)
-    transcript_df = transcript_df[['start', 'end', 'text']]
 
-    return transcript_df, text
+    return text
 
 # Setting page layout
 st.set_page_config(
@@ -116,22 +157,25 @@ if "openAI" not in st.session_state:
 if "summary" not in st.session_state:
     st.session_state.summary= None
 
+if "azure_client" not in st.session_state:
+    st.session_state.azure_client= azure.get_container_client(container_name="blainecperry", connection_string=st.secrets.AZURE_CONN_STRING)
+
+
 # Main page heading
 st.title("Captain's Log 🖖📜")
 
 # Sidebar
 with st.sidebar:
-    st.header("Data Upload")
+    st.header("Log Recorder")
     st.session_state.local_model = st.toggle("Use Local Whisper", value=False)
+    st.session_state.local_storage = st.toggle("Use Local Storage", value=False)
+
 
     if st.session_state.local_model:
         # load the whisper model
         model = create_whisper_model()
 
-    audio_files = st.sidebar.file_uploader(
-        "Select Audio or Video File", 
-        accept_multiple_files=True,
-        type=["mp4", "avi", "mov", "mkv", "mp3", "wav"])  # TODO: Expand this list
+    audio_files = []
 
     st.header("Record your audio")
     recording = audiorecorder("Click to record", "Click to stop recording")
@@ -154,7 +198,7 @@ with st.sidebar:
 
         #add to the list
         audio_files.append(file)
-    st.header("Made with ❤️ by the Data Science Team")
+    st.header("Made with ❤️ on Vulcan")
 
 
 if len(audio_files)>0:
@@ -162,36 +206,26 @@ if len(audio_files)>0:
     for file in audio_files:
         # rename becase I am a hack
         file.name = file.name.split('\\')[-1]
-        # file.name = 'test'
+        # load the audio file into memory
         dest_path = load_file(file)
 
-        transcription_df, text = transcribe(str(dest_path))
-        transcripts = transcripts + f'{file.name}: \n\n {text}\n\n'
-        with st.expander(file.name):
-            
-            st.video(str(dest_path))
+        # transcribe the text
+        transcription_text = transcribe(str(dest_path))
 
-            st.write(transcription_df)
+        # persist the transcripts
+        save_transcript(transcript=transcription_text)
 
+        # this will save the transcripts in a format ready to show the user
+        transcripts = transcripts + f'{file.name}: \n\n {transcription_text}\n\n'
+
+        with st.expander("Your log",expanded=True):
             st.markdown(transcripts)
 
-            st.download_button(
-                label="Download Transcript",
-                data=transcription_df.to_csv(index=False).encode('utf-8'),
-                file_name='transcript_' + file.name.split('.')[0] + '.csv',
-                mime="text/csv")
-
-    if st.button("Generate Summary"):
-        st.session_state.summary = generate_summary(transcripts=transcripts)
-    
-    if st.session_state.summary is not None:
-        st.subheader("Executive Summary")
-        st.write(st.session_state.summary)
 
     if st.sidebar.button("Rerun"):
         st.cache_data.clear()
 
 else:
-    st.warning("Please upload a file.")
+    st.warning("Please record a log.")
 
 

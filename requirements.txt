@@ -17,3 +17,6 @@ ipykernel
 # streamlit for user interface
 streamlit
 streamlit-audiorecorder
+
+# Azure for the data store
+azure-storage-blob
