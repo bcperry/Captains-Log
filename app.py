@@ -39,7 +39,7 @@ def save_transcript(transcript : str):
         file_count = len(existing_files)
         
         # Construct filename
-        filename = f"{current_date}_log_{file_count + 1}.txt"
+        filename = f"log_{file_count + 1}.txt"
         
         # Write text to file
         with open(os.path.join(directory, filename), 'w', encoding='utf-8')  as file:
