@@ -8,6 +8,9 @@ torchaudio
 openai-whisper
 openai
 
+#pydub for chunking audio
+pydub
+
 #pandas for dataframe manipulation
 pandas
 
