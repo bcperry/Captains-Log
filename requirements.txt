@@ -20,3 +20,6 @@ streamlit-audiorecorder
 
 # Azure for the data store
 azure-storage-blob
+
+# for login email validation
+email-validator

@@ -5,6 +5,7 @@ from audiorecorder import audiorecorder
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 from openai import OpenAI
 import azure_utils as azure
+import utilities as util
 
 # Python In-built packages
 import os
@@ -16,7 +17,7 @@ from pathlib import Path
 
 
 @st.cache_data
-def save_transcript(transcript : str):
+def save_transcript(transcript: str):
     """
     save the transcript for later use.
 
@@ -44,12 +45,11 @@ def save_transcript(transcript : str):
         # Write text to file
         with open(os.path.join(directory, filename), 'w', encoding='utf-8')  as file:
             file.write(transcript)
-        
-        print(f"Text saved to {filename} in {directory}")
-            
+        return f"Text saved to local storage"
+
     else:
         azure.save_transcript(transcript, st.session_state.azure_client)
-        print(f"Text saved to azure")
+        return f"Text saved to azure"
 
 @st.cache_resource
 def create_client():
@@ -111,7 +111,7 @@ def generate_summary(transcripts:str):
     return summary
 
 @st.cache_data
-def load_file(file):
+def load_file(file: str):
     # Streamlit file uploader returns a BytesIO object
     # bytes will be saved to a temporary directory
 
@@ -122,7 +122,7 @@ def load_file(file):
     return dest_path
 
 @st.cache_data
-def transcribe(dest_path):
+def transcribe(dest_path: str):
     if st.session_state.local_model:
         transcription = model.transcribe(str(dest_path))
         
@@ -145,39 +145,75 @@ st.set_page_config(
     page_title="Captain's Log",
     page_icon="📜",
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
 
 
-# Create an OpenAI client if not already initialized in the Streamlit session state
-if "openAI" not in st.session_state:
-    st.session_state.openAI= create_client()
 
-# Create an OpenAI client if not already initialized in the Streamlit session state
-if "summary" not in st.session_state:
-    st.session_state.summary= None
-
-if "azure_client" not in st.session_state:
-    st.session_state.azure_client= azure.get_container_client(container_name="blainecperry", connection_string=st.secrets.AZURE_CONN_STRING)
+if "user" not in st.session_state:
+    st.session_state.user= None
 
 
 # Main page heading
 st.title("Captain's Log 🖖📜")
+
+# use login info
+# Create an empty container
+placeholder = st.empty()
+
+user_email = st.secrets.USER
+actual_password = st.secrets.PASSWORD 
+
+if st.session_state.user is None:
+    # Insert a form in the container
+    with placeholder.form("login"):
+        st.markdown("#### Enter your credentials")
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
+
+    if submit and email == user_email and password == actual_password:
+        # If the form is submitted and the email and password are correct,
+        # clear the form/container and display a success message
+        placeholder.empty()
+        user, email = util.get_user(email)
+        st.session_state.user=user
+        st.success("Login successful")
+    elif submit and email != user_email and password != actual_password:
+        st.error("Login failed")
+    else:
+        pass
 
 # Sidebar
 with st.sidebar:
     st.header("Log Recorder")
     st.session_state.local_model = st.toggle("Use Local Whisper", value=False)
     st.session_state.local_storage = st.toggle("Use Local Storage", value=False)
+    st.header("Made with ❤️ on Vulcan")
 
 
-    if st.session_state.local_model:
-        # load the whisper model
-        model = create_whisper_model()
+if st.session_state.local_model:
+    # load the whisper model
+    model = create_whisper_model()
 
-    audio_files = []
 
-    st.header("Record your audio")
+if st.session_state.user:
+
+    # Create an OpenAI client if not already initialized in the Streamlit session state
+    if "openAI" not in st.session_state:
+        st.session_state.openAI= create_client()
+
+    # Create an OpenAI client if not already initialized in the Streamlit session state
+    if "summary" not in st.session_state:
+        st.session_state.summary= None
+
+    if "azure_client" not in st.session_state:
+        st.session_state.azure_client= azure.get_container_client(container_name=st.session_state.user, connection_string=st.secrets.AZURE_CONN_STRING)
+
+
+    file = None
+
+    st.subheader("Record your audio")
     recording = audiorecorder("Click to record", "Click to stop recording")
     if st.button("Clear Recording"):
         recording = None
@@ -196,14 +232,8 @@ with st.sidebar:
         st.header("Your recording")
         recording
 
-        #add to the list
-        audio_files.append(file)
-    st.header("Made with ❤️ on Vulcan")
-
-
-if len(audio_files)>0:
-    transcripts = ""
-    for file in audio_files:
+    if file is not None:
+        transcripts = ""
         # rename becase I am a hack
         file.name = file.name.split('\\')[-1]
         # load the audio file into memory
@@ -212,20 +242,13 @@ if len(audio_files)>0:
         # transcribe the text
         transcription_text = transcribe(str(dest_path))
 
-        # persist the transcripts
-        save_transcript(transcript=transcription_text)
-
-        # this will save the transcripts in a format ready to show the user
-        transcripts = transcripts + f'{file.name}: \n\n {transcription_text}\n\n'
-
         with st.expander("Your log",expanded=True):
-            st.markdown(transcripts)
+            st.markdown(transcription_text)
 
+        # persist the transcripts
+        result = save_transcript(transcript=transcription_text)
 
-    if st.sidebar.button("Rerun"):
-        st.cache_data.clear()
-
-else:
-    st.warning("Please record a log.")
-
-
+        st.toast(result)
+        
+    else:
+        st.warning("Please record a log.")
