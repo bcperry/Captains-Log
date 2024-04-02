@@ -2,6 +2,7 @@
 import streamlit as st
 import whisper
 from audiorecorder import audiorecorder
+from pydub import AudioSegment
 
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 from openai import OpenAI
@@ -222,12 +223,12 @@ if st.session_state.user:
         # its a pain in the ass to deal with this see if we can clean it later
         file = recording.export(TEMP_DIR / f"{time.strftime('%Y%m%d-%H%M%S')}_Captains_Log.wav", format="wav")
         audio_stream = BytesIO()
-        recording.export(audio_stream, format='wav')
+        recording.export(audio_stream, format='mp3')
         audio_stream.seek(0)
         file.file_id = 'recording'
-        file.type = "audio/wav"
+        file.type = "audio/mp3"
         file.data = audio_stream.getvalue()
-        file = UploadedFile(record = file, file_urls=TEMP_DIR / f"audio.wav")
+        file = UploadedFile(record = file, file_urls=TEMP_DIR / f"audio.mp3")
         
         # show the recording
         st.header("Your recording")
