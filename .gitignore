@@ -1,3 +1,4 @@
 *.pt
 .streamlit
 /data
+*__pycache__
