@@ -178,7 +178,6 @@ def split_audio(input_file):
         end = (i + 1) * chunk_duration_ms
         chunk = audio[start:end]
         chunks.append(chunk)
-    print(f'Split into {len(chunks)} chunks')
     return chunks
 
 # Setting page layout
