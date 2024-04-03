@@ -39,15 +39,20 @@ st.set_page_config(
 
 )
 
-dates = get_subfolders(st.session_state.azure_client, folder_prefix="")
+if "azure_client" not in st.session_state:
+    st.warning("Log in on App tab before use")
 
-# Create a dropdown menu
-log_day = st.selectbox(
-    placeholder = "Choose an option",
-    label = 'Select an option',
-    options= dates
-)
+else:
+    
+    dates = get_subfolders(st.session_state.azure_client, folder_prefix="")
 
-if st.button("Get Logs"):
-    logs = get_data(st.session_state.azure_client, subfolder_prefix=log_day)
-    logs
+    # Create a dropdown menu
+    log_day = st.selectbox(
+        placeholder = "Choose an option",
+        label = 'Select an option',
+        options= dates
+    )
+
+    if st.button("Get Logs"):
+        logs = get_data(st.session_state.azure_client, subfolder_prefix=log_day)
+        logs
