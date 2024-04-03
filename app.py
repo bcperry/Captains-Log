@@ -69,8 +69,6 @@ def authenticate_storage():
     st.secrets.AZURE_CONN_STRING
     return()
 
-TEMP_DIR = Path(tempfile.gettempdir())
-
 @st.cache_resource()
 def create_whisper_model(
     model_path : str = "model/medium.en.pt",
@@ -111,17 +109,6 @@ def generate_summary(transcripts:str):
 
     summary = completion.choices[0].message.content
     return summary
-
-@st.cache_data
-def load_file(file: str):
-    # Streamlit file uploader returns a BytesIO object
-    # bytes will be saved to a temporary directory
-
-    dest_path = TEMP_DIR / file.name
-    # Save file to destination path
-    with open(dest_path, "wb") as f:
-        f.write(file.getvalue())
-    return dest_path
 
 @st.cache_data
 def transcribe(filename: str):
