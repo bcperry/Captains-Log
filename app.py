@@ -124,23 +124,65 @@ def load_file(file: str):
     return dest_path
 
 @st.cache_data
-def transcribe(dest_path: str):
-    if st.session_state.local_model:
-        transcription = model.transcribe(str(dest_path))
-        
-    else:
-        audio_file= open(str(dest_path), "rb")
-        transcription = st.session_state.openAI.audio.transcriptions.create(
-        model="whisper-1", 
-        file=audio_file,
-        response_format="verbose_json",
-        )
-    if isinstance(transcription, dict):
-        text = transcription['text']
-    else:
-        text = transcription.text
+def transcribe(filename: str):
+    # Split audio file into chunks
+    audio_chunks = split_audio(filename)
 
-    return text
+    full_transcription = ""
+
+    # Transcribe each chunk
+    for chunk in audio_chunks:
+
+        # Create a temporary file to store the audio chunk
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+            chunk.export(temp_audio_file.name, format="mp3")
+
+            if st.session_state.local_model:
+                transcription = model.transcribe(temp_audio_file.name)
+                
+            else:
+                audio_file= open(temp_audio_file.name, "rb")
+                transcription = st.session_state.openAI.audio.transcriptions.create(
+                model="whisper-1", 
+                file=audio_file,
+                response_format="verbose_json",
+                )
+            if isinstance(transcription, dict):
+                text = transcription['text']
+            else:
+                text = transcription.text
+            print(text)
+            
+            full_transcription = full_transcription + text
+            
+            # Close and Delete the temporary audio file
+            temp_audio_file.close()
+            os.unlink(temp_audio_file.name)
+
+
+    return full_transcription
+
+# Function to split the audio file into chunks
+@st.cache_data
+def split_audio(input_file):
+    audio = AudioSegment.from_file(input_file)
+
+    # Define the chunk length (e.g., 120 seconds)
+    chunk_duration_ms = 120 * 1000 # in milliseconds
+
+    # Calculate number of chunks
+    print(f'audio is {len(audio)/1000} seconds')
+    num_chunks = (len(audio) // chunk_duration_ms)+1
+
+    # Split the audio file into chunks
+    chunks = []
+    for i in range(num_chunks):
+        start = i * chunk_duration_ms
+        end = (i + 1) * chunk_duration_ms
+        chunk = audio[start:end]
+        chunks.append(chunk)
+    print(f'Split into {len(chunks)} chunks')
+    return chunks
 
 # Setting page layout
 st.set_page_config(
@@ -151,10 +193,8 @@ st.set_page_config(
 )
 
 
-
 if "user" not in st.session_state:
     st.session_state.user= None
-
 
 # Main page heading
 st.title("Captain's Log 🖖📜")
@@ -163,6 +203,7 @@ st.title("Captain's Log 🖖📜")
 # Create an empty container
 placeholder = st.empty()
 
+#this is for my personal log
 user_email = st.secrets.USER
 actual_password = st.secrets.PASSWORD 
 
@@ -204,7 +245,6 @@ if st.session_state.user:
     # Create an OpenAI client if not already initialized in the Streamlit session state
     if "openAI" not in st.session_state:
         st.session_state.openAI= create_client()
-
     # Create an OpenAI client if not already initialized in the Streamlit session state
     if "summary" not in st.session_state:
         st.session_state.summary= None
@@ -220,29 +260,20 @@ if st.session_state.user:
     if st.button("Clear Recording"):
         recording = None
     if recording is not None and len(recording)> 0:
-        # its a pain in the ass to deal with this see if we can clean it later
-        file = recording.export(TEMP_DIR / f"{time.strftime('%Y%m%d-%H%M%S')}_Captains_Log.wav", format="wav")
-        audio_stream = BytesIO()
-        recording.export(audio_stream, format='mp3')
-        audio_stream.seek(0)
-        file.file_id = 'recording'
-        file.type = "audio/mp3"
-        file.data = audio_stream.getvalue()
-        file = UploadedFile(record = file, file_urls=TEMP_DIR / f"audio.mp3")
+        # Create a temporary file to store the audio
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+            recording.export(temp_audio_file.name, format="mp3")
+        
+        # Read audio data from the temporary file
+        with open(temp_audio_file.name, "rb") as file:
+            audio_data = file.read()
         
         # show the recording
         st.header("Your recording")
         recording
-
-    if file is not None:
-        transcripts = ""
-        # rename becase I am a hack
-        file.name = file.name.split('\\')[-1]
-        # load the audio file into memory
-        dest_path = load_file(file)
-
-        # transcribe the text
-        transcription_text = transcribe(str(dest_path))
+        
+        # transcribe the text 
+        transcription_text = transcribe(temp_audio_file.name)
 
         with st.expander("Your log",expanded=True):
             st.markdown(transcription_text)
@@ -251,6 +282,9 @@ if st.session_state.user:
         result = save_transcript(transcript=transcription_text)
 
         st.toast(result)
+
+        # Delete the temporary audio file
+        os.unlink(temp_audio_file.name)
         
     else:
         st.warning("Please record a log.")
