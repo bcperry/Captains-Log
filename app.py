@@ -62,10 +62,6 @@ def create_client():
     client = OpenAI(api_key=st.secrets.OPENAI_API_KEY)
     return client
 
-@st.cache_resource
-def authenticate_storage():
-    st.secrets.AZURE_CONN_STRING
-    return()
 
 @st.cache_resource()
 def create_whisper_model(
@@ -83,30 +79,7 @@ def create_whisper_model(
         
     return whisper.load_model(model_path)
 
-@st.cache_data
-def generate_summary(transcripts:str):
-    """
-    Generates a summary of the transcripts using the OpenAI GPT-3.5 Turbo model.
 
-    Parameters:
-    - transcripts (str): The transcripts to generate the summary from.
-
-    Returns:
-    - str: The generated summary.
-    """
-    completion = st.session_state.openAI.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role": "system", "content": "You are a service tailored to the army domain, aimed at generating concise, formal summaries for senior \
-         leaders based on a mix of transcripts from meetings, interviews, and presentations. The summaries should focus on key items, anomalies,\
-          and the number of events, with each summary limited to one page or less. Additionally, the service should include functionality for\
-          keyword extraction."},
-        {"role": "user", "content": transcripts}
-    ]
-    )
-
-    summary = completion.choices[0].message.content
-    return summary
 
 @st.cache_data
 def transcribe(filename: str):
@@ -170,7 +143,8 @@ st.set_page_config(
     page_title="Captain's Log",
     page_icon="📜",
     layout="wide",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="auto",
+
 )
 
 
