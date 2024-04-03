@@ -138,27 +138,25 @@ def transcribe(filename: str):
             chunk.export(temp_audio_file.name, format="mp3")
 
             if st.session_state.local_model:
-                transcription = model.transcribe(temp_audio_file.name)
-                
+                transcription = model.transcribe(temp_audio_file.name, initial_prompt=full_transcription)
             else:
-                audio_file= open(temp_audio_file.name, "rb")
-                transcription = st.session_state.openAI.audio.transcriptions.create(
-                model="whisper-1", 
-                file=audio_file,
-                response_format="verbose_json",
-                )
+                with open(temp_audio_file.name, "rb") as audio_file:
+                    transcription = st.session_state.openAI.audio.transcriptions.create(
+                    model="whisper-1", 
+                    file=audio_file,
+                    prompt=full_transcription,
+                    response_format="verbose_json",
+                    )
             if isinstance(transcription, dict):
                 text = transcription['text']
             else:
                 text = transcription.text
-            print(text)
             
             full_transcription = full_transcription + text
             
-            # Close and Delete the temporary audio file
-            temp_audio_file.close()
-            os.unlink(temp_audio_file.name)
-
+        # Close and Delete the temporary audio file
+        temp_audio_file.close()
+        os.unlink(temp_audio_file.name)
 
     return full_transcription
 
@@ -171,7 +169,6 @@ def split_audio(input_file):
     chunk_duration_ms = 120 * 1000 # in milliseconds
 
     # Calculate number of chunks
-    print(f'audio is {len(audio)/1000} seconds')
     num_chunks = (len(audio) // chunk_duration_ms)+1
 
     # Split the audio file into chunks
@@ -188,7 +185,7 @@ def split_audio(input_file):
 st.set_page_config(
     page_title="Captain's Log",
     page_icon="📜",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="auto"
 )
 
@@ -284,6 +281,7 @@ if st.session_state.user:
         st.toast(result)
 
         # Delete the temporary audio file
+        temp_audio_file.close()
         os.unlink(temp_audio_file.name)
         
     else:
