@@ -4,18 +4,15 @@ import whisper
 from audiorecorder import audiorecorder
 from pydub import AudioSegment
 
-from streamlit.runtime.uploaded_file_manager import UploadedFile
 from openai import OpenAI
 import azure_utils as azure
 import utilities as util
 
 # Python In-built packages
 import os
-from io import BytesIO
 import datetime
-import time
 import tempfile
-from pathlib import Path
+import pytz
 
 
 @st.cache_data
@@ -29,9 +26,10 @@ def save_transcript(transcript: str):
     Returns:
         None
     """
+
     if st.session_state.local_storage:
         # Get current date
-        current_date = datetime.datetime.now().strftime('%Y-%m-%d')
+        current_date = datetime.datetime.now(tz=pytz.timezone("US/Central")).strftime('%Y-%m-%d')
         
         # Create directory if it doesn't exist
         directory = f"data/{current_date}"
