@@ -225,7 +225,7 @@ if st.session_state.user:
         
         # show the recording
         st.header("Your recording")
-        recording
+        st.audio(temp_audio_file.name)
         
         # transcribe the text 
         transcription_text = transcribe(temp_audio_file.name)
@@ -234,9 +234,11 @@ if st.session_state.user:
             st.markdown(transcription_text)
 
         # persist the transcripts
-        result = save_transcript(transcript=transcription_text)
-
-        st.toast(result)
+        try:
+            result = save_transcript(transcript=transcription_text)
+            st.success(result)
+        except:
+            st.warning(result)
 
         # Delete the temporary audio file
         temp_audio_file.close()
