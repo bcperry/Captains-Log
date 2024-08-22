@@ -10,18 +10,7 @@ import tempfile
 from pathlib import Path
 from audiorecorder import audiorecorder
 from streamlit.runtime.uploaded_file_manager import UploadedFile
-from openai import OpenAI
 
-@st.cache_resource
-def create_client():
-    """
-    Creates an instance of the OpenAI client using the provided API key stored in Streamlit secrets.
-
-    Returns:
-    - OpenAI: An instance of the OpenAI client.
-    """
-    client = OpenAI(api_key=st.secrets.OPENAI_API_KEY)
-    return client
 
 TEMP_DIR = Path(tempfile.gettempdir())
 
@@ -44,7 +33,7 @@ def create_whisper_model(
 @st.cache_data
 def generate_summary(transcripts:str):
     """
-    Generates a summary of the transcripts using the OpenAI GPT-3.5 Turbo model.
+    Generates a summary of the transcripts
 
     Parameters:
     - transcripts (str): The transcripts to generate the summary from.
@@ -52,19 +41,7 @@ def generate_summary(transcripts:str):
     Returns:
     - str: The generated summary.
     """
-    completion = st.session_state.openAI.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role": "system", "content": "You are a service tailored to the army domain, aimed at generating concise, formal summaries for senior \
-         leaders based on a mix of transcripts from meetings, interviews, and presentations. The summaries should focus on key items, anomalies,\
-          and the number of events, with each summary limited to one page or less. Additionally, the service should include functionality for\
-          keyword extraction."},
-        {"role": "user", "content": transcripts}
-    ]
-    )
-
-    summary = completion.choices[0].message.content
-    return summary
+    return "Not implemented"
 
 @st.cache_data
 def load_file(file):
@@ -79,16 +56,9 @@ def load_file(file):
 
 @st.cache_data
 def transcribe(dest_path):
-    if st.session_state.local_model:
-        transcription = model.transcribe(str(dest_path))
-        
-    else:
-        audio_file= open(str(dest_path), "rb")
-        transcription = st.session_state.openAI.audio.transcriptions.create(
-        model="whisper-1", 
-        file=audio_file,
-        response_format="verbose_json",
-        )
+
+    transcription = st.session_state.local_model.transcribe(str(dest_path))
+
     if isinstance(transcription, dict):
         text = transcription['text']
         transcript_df = pd.DataFrame(transcription['segments'])
@@ -107,14 +77,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
-# Create an OpenAI client if not already initialized in the Streamlit session state
-if "openAI" not in st.session_state:
-    st.session_state.openAI= create_client()
-
-# Create an OpenAI client if not already initialized in the Streamlit session state
-if "summary" not in st.session_state:
-    st.session_state.summary= None
+if "local_model" not in st.session_state:
+    st.session_state.local_model = create_whisper_model()
 
 # Main page heading
 st.title("Captain's Log 🖖📜")
@@ -122,16 +86,11 @@ st.title("Captain's Log 🖖📜")
 # Sidebar
 with st.sidebar:
     st.header("Data Upload")
-    st.session_state.local_model = st.toggle("Use Local Whisper", value=False)
-
-    if st.session_state.local_model:
-        # load the whisper model
-        model = create_whisper_model()
 
     audio_files = st.sidebar.file_uploader(
         "Select Audio or Video File", 
         accept_multiple_files=True,
-        type=["mp4", "avi", "mov", "mkv", "mp3", "wav"])  # TODO: Expand this list
+        type=["mp4", "avi", "mov", "mkv", "mp3", "wav", "m4a"])  # TODO: Expand this list
 
     st.header("Record your audio")
     recording = audiorecorder("Click to record", "Click to stop recording")
@@ -181,12 +140,6 @@ if len(audio_files)>0:
                 file_name='transcript_' + file.name.split('.')[0] + '.csv',
                 mime="text/csv")
 
-    if st.button("Generate Summary"):
-        st.session_state.summary = generate_summary(transcripts=transcripts)
-    
-    if st.session_state.summary is not None:
-        st.subheader("Executive Summary")
-        st.write(st.session_state.summary)
 
     if st.sidebar.button("Rerun"):
         st.cache_data.clear()

@@ -6,13 +6,9 @@ torchaudio
 
 # the openai whisper library
 openai-whisper
-openai
 
 #pandas for dataframe manipulation
 pandas
-
-# ipypkernel for VScode
-ipykernel
 
 # streamlit for user interface
 streamlit
