@@ -4,16 +4,15 @@ import whisper
 from audiorecorder import audiorecorder
 from pydub import AudioSegment
 
-from openai import OpenAI
+# from openai import OpenAI
 import azure_utils as azure
-import utilities as util
 
 # Python In-built packages
 import os
 import datetime
 import tempfile
 import pytz
-
+import pandas as pd
 
 @st.cache_data
 def save_transcript(transcript: str):
@@ -59,8 +58,8 @@ def create_client():
     Returns:
     - OpenAI: An instance of the OpenAI client.
     """
-    client = OpenAI(api_key=st.secrets.OPENAI_API_KEY)
-    return client
+    # client = OpenAI(api_key=st.secrets.OPENAI_API_KEY)
+    return "LLM NOT IMPLEMENTED"
 
 
 @st.cache_resource()
@@ -95,20 +94,16 @@ def transcribe(filename: str):
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
             chunk.export(temp_audio_file.name, format="mp3")
 
-            if st.session_state.local_model:
-                transcription = model.transcribe(temp_audio_file.name, initial_prompt=full_transcription)
-            else:
-                with open(temp_audio_file.name, "rb") as audio_file:
-                    transcription = st.session_state.openAI.audio.transcriptions.create(
-                    model="whisper-1", 
-                    file=audio_file,
-                    prompt=full_transcription,
-                    response_format="verbose_json",
-                    )
+
+            transcription = model.transcribe(temp_audio_file.name, initial_prompt=full_transcription)
+
             if isinstance(transcription, dict):
                 text = transcription['text']
+                transcript_df = pd.DataFrame(transcription['segments'])
             else:
                 text = transcription.text
+                transcript_df = pd.DataFrame(transcription.segments)
+            transcript_df = transcript_df[['start', 'end', 'text']]
             
             full_transcription = full_transcription + text
             
@@ -116,7 +111,7 @@ def transcribe(filename: str):
         temp_audio_file.close()
         os.unlink(temp_audio_file.name)
 
-    return full_transcription
+    return transcript_df, full_transcription
 
 # Function to split the audio file into chunks
 @st.cache_data
@@ -154,95 +149,58 @@ if "user" not in st.session_state:
 # Main page heading
 st.title("Captain's Log 🖖📜")
 
-# use login info
-# Create an empty container
-placeholder = st.empty()
-
-#this is for my personal log
-user_email = st.secrets.USER
-actual_password = st.secrets.PASSWORD 
-
-if st.session_state.user is None:
-    # Insert a form in the container
-    with placeholder.form("login"):
-        st.markdown("#### Enter your credentials")
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
-
-    if submit and email == user_email and password == actual_password:
-        # If the form is submitted and the email and password are correct,
-        # clear the form/container and display a success message
-        placeholder.empty()
-        user, email = util.get_user(email)
-        st.session_state.user=user
-        st.success("Login successful")
-    elif submit and email != user_email and password != actual_password:
-        st.error("Login failed")
-    else:
-        pass
-
 # Sidebar
 with st.sidebar:
     st.header("Log Recorder")
-    st.session_state.local_model = st.toggle("Use Local Whisper", value=False)
-    st.session_state.local_storage = st.toggle("Use Local Storage", value=False)
-    st.header("Made with ❤️ on Vulcan")
-
-
-if st.session_state.local_model:
-    # load the whisper model
-    model = create_whisper_model()
-
-
-if st.session_state.user:
-
-    # Create an OpenAI client if not already initialized in the Streamlit session state
-    if "openAI" not in st.session_state:
-        st.session_state.openAI= create_client()
-    # Create an OpenAI client if not already initialized in the Streamlit session state
-    if "summary" not in st.session_state:
-        st.session_state.summary= None
-
-    if "azure_client" not in st.session_state:
-        st.session_state.azure_client= azure.get_container_client(container_name=st.session_state.user, connection_string=st.secrets.AZURE_CONN_STRING)
-
-
-    file = None
-
+    audio_files = st.sidebar.file_uploader(
+                                    "Select Audio or Video File", 
+                                    accept_multiple_files=True,
+                                    type=["mp4", "avi", "mov", "mkv", "mp3", "wav", "m4a"])  # TODO: Expand this list
     st.subheader("Record your audio")
     recording = audiorecorder("Click to record", "Click to stop recording")
     if st.button("Clear Recording"):
         recording = None
-    if recording is not None and len(recording)> 0:
-        # Create a temporary file to store the audio
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
-            recording.export(temp_audio_file.name, format="mp3")
-        
-        # Read audio data from the temporary file
-        with open(temp_audio_file.name, "rb") as file:
-            audio_data = file.read()
-        
-        # show the recording
-        st.header("Your recording")
-        st.audio(temp_audio_file.name)
-        
-        # transcribe the text 
-        transcription_text = transcribe(temp_audio_file.name)
+    st.header("Made with ❤️ on Vulcan")
 
-        with st.expander("Your log",expanded=True):
+
+model = create_whisper_model()
+
+
+
+file = None
+
+
+if recording is not None and len(recording)> 0:
+    # Create a temporary file to store the audio
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+        recording.export(temp_audio_file.name, format="mp3")
+    
+    # Read audio data from the temporary file
+    with open(temp_audio_file.name, "rb") as file:
+        audio_data = file.read()
+    
+    # show the recording
+    st.header("Your recording")
+    st.audio(temp_audio_file.name)
+    
+    # transcribe the text 
+    transcription_df, transcription_text = transcribe(temp_audio_file.name)
+
+    with st.expander("Your log",expanded=True):
+        st.markdown(transcription_text)
+        st.write(transcription_df)
+
+    # Delete the temporary audio file
+    temp_audio_file.close()
+    os.unlink(temp_audio_file.name)
+
+if len(audio_files) > 0:
+    for audio_file in audio_files:
+        transcription_df, transcription_text = transcribe(audio_file.name)
+        with st.expander(audio_file.name):
+            st.video(audio_file)
             st.markdown(transcription_text)
-
-        # persist the transcripts
-        try:
-            result = save_transcript(transcript=transcription_text)
-            st.success(result)
-        except:
-            st.warning(result)
-
-        # Delete the temporary audio file
-        temp_audio_file.close()
-        os.unlink(temp_audio_file.name)
-        
-    else:
-        st.warning("Please record a log.")
+            st.write(transcription_df)
+            
+else:
+    st.warning("Please record a log.")

@@ -1,5 +1,5 @@
 *.pt
-.streamlit
+secrets.toml
 /data
 .venv
 __pycache__*
