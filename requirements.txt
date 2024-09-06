@@ -1,5 +1,5 @@
 # Pytorch utils for GPU acceleration
---extra-index-url https://download.pytorch.org/whl/cu118
+--extra-index-url https://download.pytorch.org/whl/cu124
 torch
 torchvision
 torchaudio
@@ -20,3 +20,14 @@ streamlit-audiorecorder
 
 # Azure for the data store
 azure-storage-blob
+
+# for vulnerability scanning
+Jinja2==3.1.4
+certifi==2024.07.04
+cryptography==43.0.1
+idna==3.7
+pillow==10.3.0
+requests==2.32.0
+setuptools==70.0.0
+tqdm==4.66.3
+urllib3==2.2.2

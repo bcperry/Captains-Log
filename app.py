@@ -28,7 +28,7 @@ def save_transcript(transcript: str):
 
     if st.session_state.local_storage:
         # Get current date
-        current_date = datetime.datetime.now(tz=pytz.timezone("US/Central")).strftime('%Y-%m-%d')
+        current_date = datetime.datetime.now(tz=pytz.timezone("UTC")).strftime('%Y-%m-%d')
         
         # Create directory if it doesn't exist
         directory = f"data/{current_date}"
@@ -160,7 +160,7 @@ with st.sidebar:
     recording = audiorecorder("Click to record", "Click to stop recording")
     if st.button("Clear Recording"):
         recording = None
-    st.header("Made with ❤️ on Vulcan")
+    st.header("Brought to you by the ATEC CDAO and the ATEC Data Mesh")
 
 
 model = create_whisper_model()

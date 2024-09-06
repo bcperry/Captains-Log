@@ -1,2 +1,4 @@
-tinker.ipynb
-.venv
+/.venv
+.streamlit/secrets.toml
+model/large-v3.pt
+model/base.en.pt
